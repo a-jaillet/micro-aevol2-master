@@ -11,6 +11,12 @@ Dna::Dna(int length, Threefry::Gen &&rng) : seq_(length) {
     for (int32_t i = 0; i < length; i++) {
         seq_[i] = '0' + rng.random(NB_BASE);
     }
+    for (auto &elem: seq_)
+    {
+        std::cout << elem;
+    }
+    std::cout << "\n";
+    std::cout << length << "\n";
 }
 
 int Dna::length() const {
