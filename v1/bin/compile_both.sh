@@ -1,4 +1,4 @@
-CURRENT_PATH="/home/ajaillet1/Documents/OT5/micro-aevol2-master/v0/bin"
+CURRENT_PATH="/home/ajaillet1/Documents/OT5/micro-aevol2-master/v1/bin"
 cd $CURRENT_PATH
 
 cd ../build 
