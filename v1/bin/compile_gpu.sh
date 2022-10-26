@@ -4,3 +4,4 @@ cd ../build
 cmake .. -DUSE_CUDA=on
 make
 cp micro_aevol_gpu ../bin/micro_aevol_gpu
+cp micro_aevol_gpu ../experiments/micro_aevol_gpu

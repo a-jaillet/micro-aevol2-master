@@ -5,3 +5,4 @@ cd ../build
 cmake ..
 make
 cp micro_aevol_cpu ../bin/micro_aevol_cpu
+cp micro_aevol_cpu ../experiments/micro_aevol_cpu
