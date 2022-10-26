@@ -434,7 +434,7 @@ void ExpManager::run_evolution(int nb_gen) {
 
         TIMESTAMP(1, run_a_step();)
 
-        printf("Generation %d : Best individual fitness %e\n", AeTime::time(), best_indiv->fitness);
+        // printf("Generation %d : Best individual fitness %e\n", AeTime::time(), best_indiv->fitness);
         FLUSH_TRACES(gen)
 
         for (int indiv_id = 0; indiv_id < nb_indivs_; ++indiv_id) {

@@ -29,6 +29,7 @@
 #include <iostream>
 #include <getopt.h>
 #include <cstring>
+#include <sys/time.h>
 
 #ifdef USE_CUDA
 #include "cuda/cuExpManager.h"
@@ -197,10 +198,17 @@ int main(int argc, char* argv[]) {
     exp_manager = new cuExpManager(tmp);
     delete tmp;
 #endif
+    struct timeval begin, end;
+    gettimeofday(&begin, NULL);
 
     exp_manager->run_evolution(nbstep);
 
-    delete exp_manager;
+    gettimeofday(&end, NULL);
 
+    double time = 1.0 * (end.tv_sec - begin.tv_sec) + 1.0e-6 * (end.tv_usec - begin.tv_usec);
+
+    printf("%d generations genrated in %lf seconds.\n", nbstep, time);
+
+    delete exp_manager;
     return 0;
 }
