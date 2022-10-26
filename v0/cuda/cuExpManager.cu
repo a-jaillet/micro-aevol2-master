@@ -159,7 +159,7 @@ void cuExpManager::run_evolution(int nb_gen) {
     printf("Running evolution GPU from %d to %d\n", AeTime::time(), AeTime::time() + nb_gen);
     for (int gen = 0; gen < nb_gen; gen++) {
         AeTime::plusplus();
-        printf("Generation %d : \n",AeTime::time());
+        // printf("Generation %d : \n",AeTime::time());
 
         run_a_step();
 
@@ -327,7 +327,7 @@ __global__
 void check_result(uint nb_indivs, cuIndividual* individuals) {
     for (int indiv_idx = 0; indiv_idx < nb_indivs; ++indiv_idx) {
         const auto& indiv = individuals[indiv_idx];
-        printf("%d: %1.10e | ", indiv_idx, indiv.fitness);
+        // printf("%d: %1.10e | ", indiv_idx, indiv.fitness);
     }
     printf("\n");
 }
