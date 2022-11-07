@@ -6,4 +6,5 @@ cd ../build
 cmake ..
 make
 
+mkdir -p ../experiments
 cp micro_aevol_cpu ../experiments/micro_aevol_cpu
