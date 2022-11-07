@@ -26,7 +26,6 @@ __device__ void cuIndividual::search_patterns() {
 __device__ void cuIndividual::sparse_meta() {
     // One block per individual
     uint idx = threadIdx.x;
-
     if (idx == 0) {
         prepare_rnas();
     }

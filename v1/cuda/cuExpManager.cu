@@ -108,7 +108,7 @@ void cuExpManager::run_a_step() {
 }
 
 void cuExpManager::evaluate_population() {
-    dim3 my_blockDim(32); // keep a multiple of 32 (warp size)
+    dim3 my_blockDim(64); // keep a multiple of 32 (warp size)
     dim3 my_gridDim(nb_indivs_);
     dim3 one_indiv_by_thread_grid(ceil((float)nb_indivs_ / (float)my_blockDim.x));
 
