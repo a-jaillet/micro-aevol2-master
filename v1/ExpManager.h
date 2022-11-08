@@ -58,6 +58,8 @@ public:
     void run_evolution(int nb_gen) override;
 
 private:
+    void write_fitness_result();
+
     void run_a_step();
 
     void prepare_mutation(int indiv_id) const;

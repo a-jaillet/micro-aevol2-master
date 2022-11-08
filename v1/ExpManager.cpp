@@ -27,6 +27,7 @@
 
 
 #include <iostream>
+#include <fstream>
 #include <zlib.h>
 
 using namespace std;
@@ -446,6 +447,26 @@ void ExpManager::run_evolution(int nb_gen) {
             save(AeTime::time());
             cout << "Backup for generation " << AeTime::time() << " done !" << endl;
         }
+
+
+        // At gen 1000 (so 999): we store the result in a file in order to compare this result later
+        if (gen == 999)
+        {
+            write_fitness_result();
+        }
+
     }
     STOP_TRACER
+}
+
+void ExpManager::write_fitness_result()
+{
+    ofstream res("result_finess.csv");
+
+    for (int i = 0; i < nb_indivs_; i++)
+    {
+        res << prev_internal_organisms_[i]->fitness << endl;
+    }
+
+    res.close();
 }
