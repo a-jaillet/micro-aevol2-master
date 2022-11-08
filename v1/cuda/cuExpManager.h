@@ -23,6 +23,9 @@ public:
     void load(int t) final;
 
 private:
+    // Write the fitness result
+    void write_fitness_result();
+
     void run_a_step();
     void evaluate_population();
 
@@ -50,6 +53,8 @@ private:
 
     int backup_step_;
 
+    double* host_fitness_results_;
+
     // Device data
     cuIndividual* device_individuals_;
     char* all_child_genome_;
@@ -57,6 +62,7 @@ private:
 
     int* reproducers_;
 
+    double* device_fitness_results_;
     double* device_target_;
 
     RandService* rand_service_;

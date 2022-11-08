@@ -461,7 +461,7 @@ void ExpManager::run_evolution(int nb_gen) {
 
 void ExpManager::write_fitness_result()
 {
-    ofstream res("result_finess.csv");
+    ofstream res("result_fitness.csv");
 
     for (int i = 0; i < nb_indivs_; i++)
     {

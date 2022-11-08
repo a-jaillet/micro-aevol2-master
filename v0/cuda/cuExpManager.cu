@@ -5,6 +5,7 @@
 #include "cuExpManager.h"
 
 #include <cstdio>
+#include <fstream>
 #include <cassert>
 #include <chrono>
 #include <cmath>
@@ -167,6 +168,12 @@ void cuExpManager::run_evolution(int nb_gen) {
             save(AeTime::time());
             cout << "Backup for generation " << AeTime::time() << " done !" << endl;
         }
+
+        // At gen 1000 (so 999): we store the result in a file in order to compare this result later
+        if (gen == 999)
+        {
+            write_fitness_result();
+        }
     }
 
     check_result<<<1,1>>>(nb_indivs_, device_individuals_);
@@ -277,6 +284,13 @@ void cuExpManager::transfer_to_device() {
     checkCuda(cudaMalloc(&(rand_service_), sizeof(RandService)));
     checkCuda(cudaMemcpy(rand_service_, &tmp, sizeof(RandService), cudaMemcpyHostToDevice));
 
+
+    //  Create a array to store the results fitness
+    host_fitness_results_ = (double *) malloc(nb_indivs_*sizeof(double));
+
+    checkCuda(cudaMalloc(&(device_fitness_results_), nb_indivs_*sizeof(double)));
+
+
 //    check_rng<<<1, 1>>>(rand_service_);
 //    check_target<<<1, 1>>>(device_target_);
 //    CHECK_KERNEL
@@ -317,6 +331,24 @@ void cuExpManager::device_data_destructor() {
     checkCuda(cudaFree(device_individuals_));
 
     cudaDeviceReset();
+}
+
+void cuExpManager::write_fitness_result()
+{
+    int step_per_block = 32;
+    int nbBlocks = ceil(nb_indivs_/step_per_block);
+    write_fitness_result_device<<<nbBlocks, step_per_block>>>(nb_indivs_, device_fitness_results_, device_individuals_);
+    cudaDeviceSynchronize();
+    checkCuda(cudaMemcpy(host_fitness_results_, device_fitness_results_, nb_indivs_*sizeof(double), cudaMemcpyDeviceToHost));
+
+    ofstream res("result_fitness_gpu.csv");
+
+    for (int i = 0; i < nb_indivs_; i++)
+    {
+        res << host_fitness_results_[i] << endl;
+    }
+
+    res.close();
 }
 
 // __CUDA KERNELS__
@@ -576,3 +608,12 @@ void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_
     }
 }
 
+__global__
+void write_fitness_result_device(int nb_indivs, double * device_fitness_results, cuIndividual* device_individuals)
+{
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index < nb_indivs)
+    {
+        device_fitness_results[index] = device_individuals[index].fitness;
+    }
+}

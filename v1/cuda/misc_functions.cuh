@@ -6,23 +6,73 @@
 
 #include <cuda.h>
 #include <cuda_runtime_api.h>
+#include <cstdio>
 
 /// General Purpose
 template <typename T>
-__device__ int sparse(int size, T* sparse_collection){
-  int insert_position = 0;
+__device__ int sparse(int size, T* sparse_collection, int * result){
+  // new way
+  extern __shared__ uint8_t values[];
+  int range = (size / blockDim.x) + 1;
+  int beginIndex = threadIdx.x * range;
 
-  for (int read_position = 0; read_position < size; ++read_position) {
-    auto read_value = sparse_collection[read_position];
-    if (read_value) {
-      sparse_collection[insert_position] = read_position;
-      insert_position++;
+  for (int read_position = beginIndex; read_position < beginIndex + range; ++read_position) {
+    if (read_position < size)
+    {
+      auto read_value = sparse_collection[read_position];
+      if (read_value) {
+        
+        values[read_position] = 1;
+      }
+      else
+      {
+        values[read_position] = 0;
+      }
     }
   }
-  if (insert_position < size) {
-    sparse_collection[insert_position] = 0;
+  __syncthreads();
+  
+  if (threadIdx.x == 0)
+  {
+    int insert_position = 0;
+    for (int i = 0; i < size; ++i)
+    {
+      if(values[i] == 1)
+      {
+        sparse_collection[insert_position] = i;
+        insert_position++;
+      }
+      
+    }
+    if (insert_position < size) {
+      sparse_collection[insert_position] = 0;
+    }
+    result[0] = insert_position;
   }
-  return insert_position;
+
+  if (threadIdx.x == 1)
+  {
+    sparse_collection[1] = 0;
+    result[1] = 0;
+  }
+
+    // // old way
+    // if (threadIdx.x == 1)
+    // {
+    //   int insert_position = 0;
+    //   for (int read_position = 0; read_position < size; ++read_position) {
+    //     auto read_value = sparse_collection[read_position];
+    //     if (read_value) {
+    //       sparse_collection[insert_position] = read_position;
+    //       insert_position++;
+    //       }
+    //     }
+    //     if (insert_position < size) {
+    //       sparse_collection[insert_position] = 0;
+    //     }
+    //     result[0] = insert_position;
+    // }
+    
 }
 
 template <typename T>

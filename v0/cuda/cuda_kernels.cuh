@@ -69,4 +69,8 @@ void check_rng(RandService* rand_service);
 __global__
 void check_target(double* target);
 
+// Retrieve fitness results
+__global__
+void write_fitness_result_device(int nb_indivs, double * device_fitness_results, cuIndividual* device_individuals);
+
 

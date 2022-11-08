@@ -24,17 +24,19 @@ __device__ void cuIndividual::search_patterns() {
 
 
 __device__ void cuIndividual::sparse_meta() {
+    __shared__ int result[1];
     // One block per individual
     uint idx = threadIdx.x;
     if (idx == 0) {
         prepare_rnas();
     }
-    if (idx == 1) {
-        nb_terminator = sparse(size, terminators);
-    }
-    if (idx == 2) {
-        nb_prot_start = sparse(size, prot_start);
-    }
+    __syncthreads();
+    sparse(size, terminators, result);
+    __syncthreads();
+    nb_terminator = result[0];
+    sparse(size, prot_start, result);
+    __syncthreads();
+    nb_prot_start = result[0];
 }
 
 __device__ void cuIndividual::transcription() {
