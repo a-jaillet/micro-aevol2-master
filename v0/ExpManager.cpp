@@ -447,14 +447,10 @@ void ExpManager::run_evolution(int nb_gen) {
             save(AeTime::time());
             cout << "Backup for generation " << AeTime::time() << " done !" << endl;
         }
-
-        // At gen 1000 (so 999): we store the result in a file in order to compare this result later
-        if (gen == 999)
-        {
-            write_fitness_result();
-        }
-
     }
+
+    // We write the fitness result in a file in order to compare it later
+    write_fitness_result();
     STOP_TRACER
 }
 

@@ -1,15 +1,27 @@
 import os
 import shutil
 import subprocess
+import sys
+
+CURRENT_PATH = "/home/ajaillet/Documents/5IF/OT5/micro-aevol2-master/result_comparison"
+NUM_STEPS = 1000
+
 
 def prRed(skk): print("\033[91m {}\033[00m" .format(skk))
 
 def prGreen(skk): print("\033[92m {}\033[00m" .format(skk))
 
-
-CURRENT_PATH = "/home/ajaillet/Documents/5IF/OT5/micro-aevol2-master/result_comparison"
+def storeNUM_STEPS():
+    if len(sys.argv) == 2:
+        new_num = int(sys.argv[1])
+        if new_num > 0:
+            NUM_STEPS = new_num
+    print("Num steps set to ", NUM_STEPS)
+    return NUM_STEPS
 
 def main():
+    NUM_STEPS = storeNUM_STEPS()
+
     os.chdir(CURRENT_PATH)
 
     if os.path.exists("experiment_cpu_v0"):
@@ -37,7 +49,7 @@ def main():
 
     os.chdir("./experiment_cpu_v0")
 
-    args = ("./micro_aevol_cpu")
+    args = ("./micro_aevol_cpu", "-n", str(NUM_STEPS))
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
@@ -57,7 +69,7 @@ def main():
 
     os.chdir("./experiment_to_challenge")
 
-    args = ("./micro_aevol_gpu")
+    args = ("./micro_aevol_gpu", "-n", str(NUM_STEPS))
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
@@ -71,7 +83,7 @@ def main():
     res1 = f.read()
     f.close()
 
-    f = open("./experiment_to_challenge/result_fitness.csv", "r")
+    f = open("./experiment_to_challenge/result_fitness_gpu.csv", "r")
     res2 = f.read()
     f.close()
 

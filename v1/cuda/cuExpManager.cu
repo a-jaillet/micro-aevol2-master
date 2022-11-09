@@ -116,7 +116,7 @@ void cuExpManager::evaluate_population() {
     CHECK_KERNEL;
     search_patterns<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    sparse_meta<<<my_gridDim, my_blockDim, genome_length_*sizeof(uint8_t)+sizeof(int)>>>(nb_indivs_, device_individuals_);
+    sparse_meta<<<my_gridDim, my_blockDim, (my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
     transcription<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
@@ -167,14 +167,8 @@ void cuExpManager::run_evolution(int nb_gen) {
             save(AeTime::time());
             cout << "Backup for generation " << AeTime::time() << " done !" << endl;
         }
-
-        // At gen 1000 (so 999): we store the result in a file in order to compare this result later
-        if (gen == 999)
-        {
-            write_fitness_result();
-        }
     }
-
+    write_fitness_result();
     check_result<<<1,1>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL
 }
