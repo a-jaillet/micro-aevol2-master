@@ -35,7 +35,7 @@ struct cuIndividual {
     __device__ void translation();
 
 
-    __device__ void prepare_rnas();
+    __device__ void prepare_rnas(uint* nbPerThreads, uint* tmp_sparse_collection);
 
     __device__ void compute_rna(uint rna_idx) const;
 
@@ -81,6 +81,9 @@ struct cuIndividual {
     uint *terminators{};
     uint nb_prot_start{};
     uint *prot_start{};
+
+    // New struct for tmp calculations, usefull in sparse function
+    uint *tmp_sparse_collection{};
 
     uint nb_rnas{};
     cuRNA *list_rnas{};

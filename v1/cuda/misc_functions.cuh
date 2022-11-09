@@ -10,69 +10,67 @@
 
 /// General Purpose
 template <typename T>
-__device__ int sparse(int size, T* sparse_collection, int * result){
-  // new way
-  extern __shared__ uint8_t values[];
-  int range = (size / blockDim.x) + 1;
-  int beginIndex = threadIdx.x * range;
+__device__ void sparse(int size, T* sparse_collection, T* tmp_sparse_collection, uint * nbPerThreads, uint * result){
+  // new 
+  uint range = (size / blockDim.x)+1;
+  nbPerThreads[threadIdx.x+1] = 0;
+  uint begin = threadIdx.x * range;
+  uint nb_found = 0;
 
-  for (int read_position = beginIndex; read_position < beginIndex + range; ++read_position) {
+  for (uint read_position = begin; read_position < begin + range; ++read_position) {
     if (read_position < size)
     {
       auto read_value = sparse_collection[read_position];
       if (read_value) {
-        
-        values[read_position] = 1;
-      }
-      else
-      {
-        values[read_position] = 0;
+        nbPerThreads[threadIdx.x+1]++;
+        tmp_sparse_collection[begin + nb_found] = read_position;
+        nb_found++;
       }
     }
   }
-  __syncthreads();
   
-  if (threadIdx.x == 0)
+  __syncthreads();
+
+  int insert_before = 0;
+  for (uint i = 1; i < threadIdx.x+1; i++)
   {
-    int insert_position = 0;
-    for (int i = 0; i < size; ++i)
+      insert_before += nbPerThreads[i];
+  }
+
+  for (uint index = begin; index < begin + nb_found; index++) {
+      sparse_collection[insert_before] = tmp_sparse_collection[index];
+      insert_before++;
+  }
+
+  if (threadIdx.x == blockDim.x - 1)
+  {
+    if (insert_before < size)
     {
-      if(values[i] == 1)
-      {
-        sparse_collection[insert_position] = i;
-        insert_position++;
-      }
-      
+      sparse_collection[insert_before] = 0;
     }
-    if (insert_position < size) {
-      sparse_collection[insert_position] = 0;
-    }
-    result[0] = insert_position;
+    result[0] = insert_before;
   }
 
-  if (threadIdx.x == 1)
-  {
-    sparse_collection[1] = 0;
-    result[1] = 0;
-  }
 
-    // // old way
-    // if (threadIdx.x == 1)
-    // {
-    //   int insert_position = 0;
-    //   for (int read_position = 0; read_position < size; ++read_position) {
-    //     auto read_value = sparse_collection[read_position];
-    //     if (read_value) {
-    //       sparse_collection[insert_position] = read_position;
-    //       insert_position++;
-    //       }
-    //     }
-    //     if (insert_position < size) {
-    //       sparse_collection[insert_position] = 0;
-    //     }
-    //     result[0] = insert_position;
-    // }
-    
+
+  // old 
+  // int insert_position = 0;
+
+  // if (threadIdx.x == 0)
+  // {
+  //   for (int read_position = 0; read_position < size; ++read_position) {
+  //     auto read_value = sparse_collection[read_position];
+  //     if (read_value) {
+  //       sparse_collection[insert_position] = read_position;
+  //       insert_position++;
+  //     }
+  //   }
+  //   if (insert_position < size) {
+  //     sparse_collection[insert_position] = 0;
+  //   }
+  //   result[0] = insert_position;
+  // }
+
 }
 
 template <typename T>

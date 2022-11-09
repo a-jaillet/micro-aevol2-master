@@ -116,7 +116,7 @@ void cuExpManager::evaluate_population() {
     CHECK_KERNEL;
     search_patterns<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    sparse_meta<<<my_gridDim, my_blockDim, (my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
+    sparse_meta<<<my_gridDim, my_blockDim, (2*my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
     transcription<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
@@ -239,10 +239,15 @@ void cuExpManager::transfer_to_device() {
 
     uint8_t* all_promoters;
     uint* all_terminators;
+
+    // New collection for tmp use in sparse methods
+    uint* all_tmp_sparse_collection;
+
     uint* all_prot_start;
     cuRNA* all_rnas;
     checkCuda(cudaMalloc(&(all_promoters), all_genomes_size * sizeof(uint8_t)));
     checkCuda(cudaMalloc(&(all_terminators), all_genomes_size * sizeof(uint)));
+    checkCuda(cudaMalloc(&(all_tmp_sparse_collection), all_genomes_size * sizeof(uint)));
     checkCuda(cudaMalloc(&(all_prot_start), all_genomes_size * sizeof(uint)));
     checkCuda(cudaMalloc(&(all_rnas), all_genomes_size * sizeof(cuRNA)));
 
@@ -256,7 +261,7 @@ void cuExpManager::transfer_to_device() {
     }
 
     init_device_population<<<1, 1>>>(nb_indivs_, genome_length_, device_individuals_, all_child_genome_,
-                                     all_promoters, all_terminators, all_prot_start, all_rnas);
+                                     all_promoters, all_terminators, all_tmp_sparse_collection, all_prot_start, all_rnas);
     CHECK_KERNEL
 
     // Transfer phenotypic target
@@ -577,7 +582,7 @@ void check_rng(RandService* rand_service) {
 
 __global__
 void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_individuals, char* all_genomes,
-                            uint8_t* all_promoters, uint* all_terminators, uint* all_prot_start, cuRNA* all_rnas) {
+                            uint8_t* all_promoters, uint* all_terminators, uint* all_tmp_sparse_collection, uint* all_prot_start, cuRNA* all_rnas) {
     auto idx = threadIdx.x + blockIdx.x * blockDim.x;
     auto rr_width = blockDim.x * gridDim.x;
 
@@ -588,6 +593,7 @@ void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_
         local_indiv.genome = all_genomes + offset + i * PROM_SIZE;
         local_indiv.promoters = all_promoters + offset;
         local_indiv.terminators = all_terminators + offset;
+        local_indiv.tmp_sparse_collection = all_tmp_sparse_collection + offset;
         local_indiv.prot_start = all_prot_start + offset;
         local_indiv.list_rnas = all_rnas + offset;
         local_indiv.nb_terminator = 0;

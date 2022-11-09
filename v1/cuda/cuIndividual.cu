@@ -24,21 +24,16 @@ __device__ void cuIndividual::search_patterns() {
 
 
 __device__ void cuIndividual::sparse_meta() {
-    __shared__ int result[1];
-    // One block per individual
-    uint idx = threadIdx.x;
-    if (idx == 0) {
-        prepare_rnas();
-    }
+    // Before: One block per individual
+    // uint idx = threadIdx.x;
+    
+    // New version
+    extern __shared__ uint nbPerThreads[];
+    prepare_rnas(nbPerThreads, tmp_sparse_collection);
+    sparse(size, terminators, tmp_sparse_collection, nbPerThreads, &nb_terminator);
     __syncthreads();
-    sparse(size, terminators, result);
-    __syncthreads();
-    nb_terminator = result[0];
-    sparse(size, prot_start, result);
-    __syncthreads();
-    nb_prot_start = result[0];
+    sparse(size, prot_start, tmp_sparse_collection, nbPerThreads, &nb_prot_start);
 }
-
 __device__ void cuIndividual::transcription() {
     // One block per individual
     uint idx = threadIdx.x;
@@ -89,23 +84,92 @@ __device__ void cuIndividual::clean_metadata() {
     list_protein = nullptr;
 }
 
-__device__ void cuIndividual::prepare_rnas() {
-    // One thread working alone
-    int insert_position = 0;
-
-    for (uint read_position = 0; read_position < size; ++read_position) {
-        uint8_t read_value = promoters[read_position];
-        if (read_value <= PROM_MAX_DIFF) {
-            auto &rna = list_rnas[insert_position];
-            rna.errors = read_value;
-            rna.start_transcription = read_position + PROM_SIZE;
-            if (rna.start_transcription >= size)
-                rna.start_transcription -= size;
-            insert_position++;
-        }
+__device__ void cuIndividual::prepare_rnas(uint * nbPerThreads, uint* tmp_sparse_collection) {
+    // new    
+    if (threadIdx.x == 0)
+    {
+        nbPerThreads[0] = 0;
     }
 
-    nb_rnas = insert_position;
+    nbPerThreads[threadIdx.x+1] = 0;
+    uint range = (size / blockDim.x)+1;
+    uint begin = threadIdx.x * range;
+    uint nb_found = 0;
+    uint read_position;
+    uint8_t read_value;
+
+    for (read_position = begin; read_position < begin + range; ++read_position) {
+        if (read_position < size)
+        {
+            read_value = promoters[read_position];
+            if (read_value <= PROM_MAX_DIFF) {
+                nbPerThreads[threadIdx.x+1]++;
+                tmp_sparse_collection[begin+nb_found] = read_position;
+                nb_found++;
+            }
+        }
+        
+    }
+    __syncthreads();
+
+    int insert_before = 0;
+    for (uint i = 1; i < threadIdx.x+1; i++)
+    {
+        insert_before += nbPerThreads[i];
+    }
+
+    for (uint index = begin; index < begin+nb_found; index++)
+    {
+        read_position = tmp_sparse_collection[index];
+        read_value = promoters[read_position];
+        auto &rna = list_rnas[insert_before];
+        rna.errors = read_value;
+        rna.start_transcription = read_position + PROM_SIZE;
+        if (rna.start_transcription >= size)
+            rna.start_transcription -= size;
+        insert_before++; 
+    }
+
+    // for (uint read_position = threadIdx.x * range; read_position < threadIdx.x * range + range; ++read_position) {
+    //     if (read_position < size)
+    //     {
+    //         uint8_t read_value = promoters[read_position];
+    //         if (read_value <= PROM_MAX_DIFF) {
+    //             auto &rna = list_rnas[insert_before];
+    //             rna.errors = read_value;
+    //             rna.start_transcription = read_position + PROM_SIZE;
+    //             if (rna.start_transcription >= size)
+    //                 rna.start_transcription -= size;
+    //             insert_before++; 
+    //         }
+    //     }
+    // }
+
+    atomicAdd(&nbPerThreads[0], nbPerThreads[threadIdx.x+1]);
+    __syncthreads();
+
+    if (threadIdx.x == 0)
+    {
+        nb_rnas = nbPerThreads[0];
+    }
+    // old
+
+    // One thread working alone
+    // int insert_position = 0;
+
+    // for (uint read_position = 0; read_position < size; ++read_position) {
+    //     uint8_t read_value = promoters[read_position];
+    //     if (read_value <= PROM_MAX_DIFF) {
+    //         auto &rna = list_rnas[insert_position];
+    //         rna.errors = read_value;
+    //         rna.start_transcription = read_position + PROM_SIZE;
+    //         if (rna.start_transcription >= size)
+    //             rna.start_transcription -= size;
+    //         insert_position++;
+    //     }
+    // }
+
+    // nb_rnas = insert_position;
 }
 
 __device__ void cuIndividual::compute_rna(uint rna_idx) const {
