@@ -1,4 +1,4 @@
-CURRENT_PATH="/home/ajaillet/Documents/5IF/OT5/micro-aevol2-master/v1/bin"
+CURRENT_PATH="${MICRO_AEVOL_SOURCE_DIRECTORY}/v0/bin"
 cd $CURRENT_PATH
 
 mkdir -p ../build
