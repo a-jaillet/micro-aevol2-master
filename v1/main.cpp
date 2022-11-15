@@ -208,7 +208,7 @@ int main(int argc, char* argv[]) {
     double time = 1.0 * (end.tv_sec - begin.tv_sec) + 1.0e-6 * (end.tv_usec - begin.tv_usec);
 
     printf("%d generations genrated in %lf seconds.\n", nbstep, time);
-
+    printf("%lf\n", time);
     delete exp_manager;
     return 0;
 }
