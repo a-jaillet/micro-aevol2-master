@@ -98,6 +98,15 @@ __device__ void cuIndividual::prepare_rnas(uint * nbPerThreads, uint* tmp_sparse
     uint read_position;
     uint8_t read_value;
 
+    // for (read_position = threadIdx.x; read_position < size; read_position += blockDim.x) {
+    //     read_value = promoters[read_position];
+    //     if (read_value <= PROM_MAX_DIFF) {
+    //         nbPerThreads[threadIdx.x+1]++;
+    //         tmp_sparse_collection[threadIdx.x+nb_found*blockDim.x] = read_position;
+    //         nb_found++;
+    //     }
+    // }
+
     for (read_position = begin; read_position < begin + range; ++read_position) {
         if (read_position < size)
         {
@@ -113,37 +122,38 @@ __device__ void cuIndividual::prepare_rnas(uint * nbPerThreads, uint* tmp_sparse
     __syncthreads();
 
     int insert_before = 0;
-    for (uint i = 1; i < threadIdx.x+1; i++)
+    uint i;
+    for (i = 1; i < threadIdx.x+1; i++)
     {
         insert_before += nbPerThreads[i];
     }
 
-    for (uint index = begin; index < begin+nb_found; index++)
-    {
-        read_position = tmp_sparse_collection[index];
-        read_value = promoters[read_position];
-        auto &rna = list_rnas[insert_before];
-        rna.errors = read_value;
-        rna.start_transcription = read_position + PROM_SIZE;
-        if (rna.start_transcription >= size)
-            rna.start_transcription -= size;
-        insert_before++; 
-    }
-
-    // for (uint read_position = threadIdx.x * range; read_position < threadIdx.x * range + range; ++read_position) {
-    //     if (read_position < size)
-    //     {
-    //         uint8_t read_value = promoters[read_position];
-    //         if (read_value <= PROM_MAX_DIFF) {
-    //             auto &rna = list_rnas[insert_before];
-    //             rna.errors = read_value;
-    //             rna.start_transcription = read_position + PROM_SIZE;
-    //             if (rna.start_transcription >= size)
-    //                 rna.start_transcription -= size;
-    //             insert_before++; 
-    //         }
-    //     }
+    // for (i = 0; i < nb_found; i++)
+    // {
+    //     read_position = tmp_sparse_collection[threadIdx.x + i * blockDim.x];
+    //     read_value = promoters[read_position];
+    //     auto &rna = list_rnas[insert_before];
+    //     rna.errors = read_value;
+    //     rna.start_transcription = read_position + PROM_SIZE;
+    //     if (rna.start_transcription >= size)
+    //         rna.start_transcription -= size;
+    //     insert_before++; 
     // }
+
+    for (uint read_position = threadIdx.x * range; read_position < threadIdx.x * range + range; ++read_position) {
+        if (read_position < size)
+        {
+            uint8_t read_value = promoters[read_position];
+            if (read_value <= PROM_MAX_DIFF) {
+                auto &rna = list_rnas[insert_before];
+                rna.errors = read_value;
+                rna.start_transcription = read_position + PROM_SIZE;
+                if (rna.start_transcription >= size)
+                    rna.start_transcription -= size;
+                insert_before++; 
+            }
+        }
+    }
 
     atomicAdd(&nbPerThreads[0], nbPerThreads[threadIdx.x+1]);
     __syncthreads();

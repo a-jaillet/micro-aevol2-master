@@ -116,7 +116,7 @@ void cuExpManager::evaluate_population() {
     CHECK_KERNEL;
     search_patterns<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    sparse_meta<<<my_gridDim, my_blockDim, (2*my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
+    sparse_meta<<<my_gridDim, my_blockDim, (my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
     transcription<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
