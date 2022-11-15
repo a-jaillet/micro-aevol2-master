@@ -68,7 +68,7 @@ def main():
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
-    print("V1 GPU compiled and copied to experiment_to_challenge")
+    print("V2 GPU compiled and copied to experiment_to_challenge")
 
     os.chdir("./experiment_to_challenge")
 
@@ -76,7 +76,7 @@ def main():
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
-    print("V1 GPU executed and fitness result written in ./experiment_to_challenge/result_fitness_gpu.csv")
+    print("V2 GPU executed and fitness result written in ./experiment_to_challenge/result_fitness_gpu.csv")
 
     os.chdir("..")
 
