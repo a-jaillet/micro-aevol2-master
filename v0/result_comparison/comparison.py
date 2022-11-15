@@ -3,26 +3,29 @@ import shutil
 import subprocess
 import sys
 
-CURRENT_PATH = "/home/ajaillet/Documents/5IF/OT5/micro-aevol2-master/result_comparison"
-NUM_STEPS = 1000
+ABSOLUTE_PATH = os.environ.get('MICRO_AEVOL_PROJECT_DIRECTORY') + "/v0/result_comparison"
 
 
 def prRed(skk): print("\033[91m {}\033[00m" .format(skk))
 
 def prGreen(skk): print("\033[92m {}\033[00m" .format(skk))
 
-def storeNUM_STEPS():
+def storeNUM_STEPS(default):
     if len(sys.argv) == 2:
         new_num = int(sys.argv[1])
         if new_num > 0:
             NUM_STEPS = new_num
+        else:
+            NUM_STEPS = default
+    else:
+        NUM_STEPS = default
     print("Num steps set to ", NUM_STEPS)
     return NUM_STEPS
 
 def main():
-    NUM_STEPS = storeNUM_STEPS()
+    NUM_STEPS = storeNUM_STEPS(1000)
 
-    os.chdir(CURRENT_PATH)
+    os.chdir(ABSOLUTE_PATH)
 
     if os.path.exists("experiment_cpu_v0"):
         shutil.rmtree("experiment_cpu_v0")
@@ -37,11 +40,11 @@ def main():
 
 
 
-    args = ("sh", "../v0/bin/compile_cpu.sh")
+    args = ("sh", "../bin/compile_cpu.sh")
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
-    args = ("cp", "../v0/build/micro_aevol_cpu", "./experiment_cpu_v0/micro_aevol_cpu")
+    args = ("cp", "../build/micro_aevol_cpu", "./experiment_cpu_v0/micro_aevol_cpu")
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
@@ -57,15 +60,15 @@ def main():
 
     os.chdir("..")
 
-    args = ("sh", "../v1/bin/compile_gpu.sh")
+    args = ("sh", "../bin/compile_gpu.sh")
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
-    args = ("cp", "../v1/build/micro_aevol_gpu", "./experiment_to_challenge/micro_aevol_gpu")
+    args = ("cp", "../build/micro_aevol_gpu", "./experiment_to_challenge/micro_aevol_gpu")
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
-    print("V1 GPU compiled and copied to experiment_to_challenge")
+    print("V0 GPU compiled and copied to experiment_to_challenge")
 
     os.chdir("./experiment_to_challenge")
 
@@ -73,7 +76,7 @@ def main():
     popen = subprocess.Popen(args, stdout=subprocess.PIPE)
     popen.wait()
 
-    print("V1 GPU executed and fitness result written in ./experiment_to_challenge/result_fitness_gpu.csv")
+    print("V0 GPU executed and fitness result written in ./experiment_to_challenge/result_fitness_gpu.csv")
 
     os.chdir("..")
 
