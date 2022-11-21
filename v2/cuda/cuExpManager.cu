@@ -108,27 +108,38 @@ void cuExpManager::run_a_step() {
     CHECK_KERNEL;
 }
 
+__global__
+void evaluate_population_kernel1(int nb_indivs, cuIndividual* device_individuals)
+{
+    // Always one block per individuals
+    search_patterns(nb_indivs, device_individuals);
+    sparse_meta(nb_indivs, device_individuals);
+    transcription(nb_indivs, device_individuals);
+    find_gene_per_RNA(nb_indivs, device_individuals);
+}
+
+
+__global__
+void evaluate_population_kernel2(int nb_indivs, cuIndividual* device_individuals, double* device_target)
+{
+    // Always one block per individuals
+    translation(nb_indivs, device_individuals);
+    compute_phenotype(nb_indivs, device_individuals);
+    compute_fitness(nb_indivs, device_individuals, device_target);
+}
+
+
 void cuExpManager::evaluate_population() {
     dim3 my_blockDim(32); // keep a multiple of 32 (warp size)
     dim3 my_gridDim(nb_indivs_);
     dim3 one_indiv_by_thread_grid(ceil((float)nb_indivs_ / (float)my_blockDim.x));
     clean_metadata<<<one_indiv_by_thread_grid, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    search_patterns<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
-    CHECK_KERNEL;
-    sparse_meta<<<my_gridDim, my_blockDim, (my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
-    CHECK_KERNEL;
-    transcription<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
-    CHECK_KERNEL;
-    find_gene_per_RNA<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
+    evaluate_population_kernel1<<<my_gridDim, my_blockDim, (my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
     gather_genes<<<one_indiv_by_thread_grid, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    translation<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
-    CHECK_KERNEL;
-    compute_phenotype<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_);
-    CHECK_KERNEL;
-    compute_fitness<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_, device_target_);
+    evaluate_population_kernel2<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_, device_target_);
     CHECK_KERNEL;
 }
 
@@ -484,7 +495,7 @@ void clean_metadata(uint nb_indivs, cuIndividual* individuals) {
         individuals[i].clean_metadata();
 }
 
-__global__
+__device__
 void search_patterns(uint nb_indivs, cuIndividual* individuals) {
     // One block per individual
     auto indiv_idx = blockIdx.x;
@@ -492,7 +503,7 @@ void search_patterns(uint nb_indivs, cuIndividual* individuals) {
         individuals[indiv_idx].search_patterns();
 }
 
-__global__
+__device__
 void sparse_meta(uint nb_indivs, cuIndividual* individuals) {
     // One block per individual
     auto indiv_idx = blockIdx.x;
@@ -500,7 +511,7 @@ void sparse_meta(uint nb_indivs, cuIndividual* individuals) {
         individuals[indiv_idx].sparse_meta();
 }
 
-__global__
+__device__
 void transcription(uint nb_indivs, cuIndividual* individuals) {
     // One block per individual
     auto indiv_idx = blockIdx.x;
@@ -508,7 +519,7 @@ void transcription(uint nb_indivs, cuIndividual* individuals) {
         individuals[indiv_idx].transcription();
 }
 
-__global__
+__device__
 void find_gene_per_RNA(uint nb_indivs, cuIndividual* individuals) {
     // One block per individual
     auto indiv_idx = blockIdx.x;
@@ -526,21 +537,21 @@ void gather_genes(uint nb_indivs, cuIndividual* individuals) {
         individuals[i].gather_genes();
 }
 
-__global__ void translation(uint size, cuIndividual* individuals) {
+__device__ void translation(uint size, cuIndividual* individuals) {
     // On block per individual
     auto indiv_idx = blockIdx.x;
     if (indiv_idx < size)
         individuals[indiv_idx].translation();
 }
 
-__global__ void compute_phenotype(uint size, cuIndividual* individuals) {
+__device__ void compute_phenotype(uint size, cuIndividual* individuals) {
     // On block per individual
     auto indiv_idx = blockIdx.x;
     if (indiv_idx < size)
         individuals[indiv_idx].compute_phenotype();
 }
 
-__global__ void compute_fitness(uint size, cuIndividual* individuals, const double* target) {
+__device__ void compute_fitness(uint size, cuIndividual* individuals, const double* target) {
     // On block per individual
     auto indiv_idx = blockIdx.x;
     if (indiv_idx < size)

@@ -27,31 +27,38 @@ __global__
 void check_result(uint nb_indivs, cuIndividual* individuals);
 
 // Evaluation process
+
+__global__
+void evaluate_population_kernel1(int nb_indivs, cuIndividual* device_individuals);
+
+__global__
+void evaluate_population_kernel2(int nb_indivs, cuIndividual* device_individuals, double* device_target);
+
 __global__
 void clean_metadata(uint nb_indivs, cuIndividual* individual);
 
-__global__
+__device__
 void search_patterns(uint nb_indivs, cuIndividual* individual);
 
-__global__
+__device__
 void sparse_meta(uint nb_indivs, cuIndividual* individual);
 
-__global__
+__device__
 void transcription(uint nb_indivs, cuIndividual* individual);
 
-__global__
+__device__
 void find_gene_per_RNA(uint nb_indivs, cuIndividual* individual);
 
 __global__
 void gather_genes(uint nb_indivs, cuIndividual* individual);
 
-__global__
+__device__
 void translation(uint nb_indivs, cuIndividual* individual);
 
-__global__
+__device__
 void compute_phenotype(uint nb_indivs, cuIndividual* individual);
 
-__global__
+__device__
 void compute_fitness(uint nb_indivs, cuIndividual* individual, const double* target);
 
 // Interface Host | Device
