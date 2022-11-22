@@ -73,15 +73,15 @@ __device__ void cuIndividual::clean_metadata() {
     fitness = 0.0;
 
     for (int i = 0; i < nb_rnas; ++i) {
-        delete[] list_rnas[i].list_gene;
-        list_rnas[i].list_gene = nullptr;
+        delete[] list_rnas[i].list_gene.ary;
+        list_rnas[i].list_gene.ary = nullptr;
     }
     nb_rnas = 0;
 
-    delete[] list_gene;
-    list_gene = nullptr;
-    delete[] list_protein;
-    list_protein = nullptr;
+    // delete[] list_gene.ary;
+    // list_gene.ary = nullptr;
+    // delete[] list_protein.ary;
+    // list_protein.ary = nullptr;
 }
 
 __device__ void cuIndividual::prepare_rnas(uint * nbPerThreads, uint* tmp_sparse_collection) {
@@ -202,7 +202,7 @@ __device__ void cuIndividual::prepare_gene(uint rna_idx) const {
     // One thread
     auto &rna = list_rnas[rna_idx];
     rna.nb_gene = 0;
-    rna.list_gene = nullptr;
+    rna.list_gene.ary = nullptr;
     if (rna.errors > PROM_MAX_DIFF) {
         return;
     }
@@ -232,8 +232,8 @@ __device__ void cuIndividual::prepare_gene(uint rna_idx) const {
 
     rna.nb_gene = local_nb_gene;
     if (local_nb_gene > 0) {
-        rna.list_gene = new cuGene[local_nb_gene]{};
-        assert(rna.list_gene != nullptr);
+        rna.list_gene.ary = new cuGene[local_nb_gene]{};
+        assert(rna.list_gene.ary != nullptr);
     }
     for (int i = 0; i < rna.nb_gene; ++i) {
         uint start = list_ps[first_next_ps] + SD_TO_START;
@@ -241,9 +241,9 @@ __device__ void cuIndividual::prepare_gene(uint rna_idx) const {
             start -= size;
         }
 
-        rna.list_gene[i].start = start;
-        rna.list_gene[i].concentration = PROM_MAX_DIFF + 1 - rna.errors;
-        rna.list_gene[i].length_limit = get_distance(rna.start_transcription, start);
+        rna.list_gene.ary[i].start = start;
+        rna.list_gene.ary[i].concentration = PROM_MAX_DIFF + 1 - rna.errors;
+        rna.list_gene.ary[i].length_limit = get_distance(rna.start_transcription, start);
         if (++first_next_ps >= nb_ps) {
             first_next_ps = 0;
         }
@@ -257,10 +257,15 @@ __device__ void cuIndividual::gather_genes() {
         nb_gene += list_rnas[idx_rna].nb_gene;
     }
     if (nb_gene > 0) {
-        list_gene = new cuGene[nb_gene]{};
-        list_protein = new cuProtein[nb_gene]{};
-        assert(list_gene != nullptr);
-        assert(list_protein != nullptr);
+        // list_gene.ary = new cuGene[nb_gene]{};
+        // new 
+        pseudo_new_my_array_gene(&list_gene, nb_gene);
+
+        // list_protein.ary = new cuProtein[nb_gene]{};
+        pseudo_new_my_array_prot(&list_protein, nb_gene);
+
+        assert(list_gene.ary != nullptr);
+        assert(list_protein.ary != nullptr);
     }
     uint insert_idx = 0;
 
@@ -268,9 +273,9 @@ __device__ void cuIndividual::gather_genes() {
         const auto &rna = list_rnas[idx_rna];
         for (int i = 0; i < rna.nb_gene; ++i) {
             assert(insert_idx < nb_gene);
-            list_gene[insert_idx] = rna.list_gene[i];
+            list_gene.ary[insert_idx] = rna.list_gene.ary[i];
             // limit is difference between transcription_length and distance start_rna -> start_gen (computed in `prepare_gene`)
-            list_gene[insert_idx].length_limit = rna.transcription_length - list_gene[insert_idx].length_limit;
+            list_gene.ary[insert_idx].length_limit = rna.transcription_length - list_gene.ary[insert_idx].length_limit;
             insert_idx++;
         }
     }
@@ -278,7 +283,7 @@ __device__ void cuIndividual::gather_genes() {
 
 __device__ void cuIndividual::translate_gene(uint gene_idx) const {
     // One thread
-    const auto &gene = list_gene[gene_idx];
+    const auto &gene = list_gene.ary[gene_idx];
 
     uint max_distance = gene.length_limit;
 
@@ -290,7 +295,7 @@ __device__ void cuIndividual::translate_gene(uint gene_idx) const {
 
     uint it = gene.start;
     uint distance = 0;
-    auto &new_protein = list_protein[gene_idx];
+    auto &new_protein = list_protein.ary[gene_idx];
 
     while (true) {
         uint8_t codon = translate_to_codon(genome + it);
@@ -367,7 +372,7 @@ __device__ void cuIndividual::compute_phenotype() {
     __syncthreads();
 
     for (int protein_idx = idx; protein_idx < nb_gene; protein_idx += rr_width) {
-        auto& protein = list_protein[protein_idx];
+        auto& protein = list_protein.ary[protein_idx];
         if (protein.is_functional()) {
             int8_t activ_inhib = protein.height > 0 ? 0 : 1;
             add_protein_to_phenotype(protein, phenotype_activ_inhib[activ_inhib]);
@@ -459,7 +464,7 @@ __device__ void cuIndividual::print_gathered_genes() const {
         for (int i = 0; i < local_nb_gene; ++i) {
             local_nb_gene++;
             printf("\t%d: concentration: %d, limit: %d\n",
-                   list_gene[i].start, list_gene[i].concentration, list_gene[i].length_limit);
+                   list_gene.ary[i].start, list_gene.ary[i].concentration, list_gene.ary[i].length_limit);
         }
 
         printf("\nnumber of potential gene: %u\n", local_nb_gene);
@@ -474,10 +479,10 @@ __device__ void cuIndividual::print_proteins() const {
         PRINT_HEADER("PROTEINS");
         uint nb_prot = 0;
         for (int i = 0; i < nb_gene; ++i) {
-            const auto &prot = list_protein[i];
+            const auto &prot = list_protein.ary[i];
             nb_prot++;
             printf("%d: %d %f %f %f %f\n",
-                   list_gene[i].start, prot.is_functional(),
+                   list_gene.ary[i].start, prot.is_functional(),
                    prot.concentration, prot.width, prot.mean, prot.height);
 
         }
@@ -503,4 +508,35 @@ __device__ void cuIndividual::print_phenotype() const {
         PRINT_CLOSING("PHENOTYPE");
     }
     __syncthreads();
+}
+
+__device__
+void pseudo_new_my_array_gene(my_array<cuGene> * my_arr, size_t new_size)
+{
+    // if not, must increase the value list_max_size in th efile cuExpManager
+    assert(new_size <= my_arr->max_size);
+}
+
+__device__
+void pseudo_new_my_array_prot(my_array<cuProtein> * my_arr, size_t new_size)
+{
+    // if not, must increase the value list_max_size in th efile cuExpManager
+    assert(new_size <= my_arr->max_size);
+
+    // Then must reinit all the prots that we are going to use:
+
+    for (int id = 0; id < my_arr->max_size; id++)
+    {
+        cuProtein * prot = &(my_arr->ary[id]);
+        for (int i = 0; i < 3; i++)
+        {
+            prot->wmh[i] = 0;
+            prot->wmh_nb[i] = 0;
+        }
+
+        prot->concentration = 0;
+        prot->width = 0;
+        prot->height = 0;
+        prot->mean = 0;
+    }
 }

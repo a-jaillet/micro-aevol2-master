@@ -9,6 +9,12 @@
 #include "aevol_constants.h"
 #include "cuProtein.cuh"
 
+template <typename T> 
+struct my_array {
+    size_t max_size;
+    T *ary; 
+}; 
+
 struct cuGene {
     // value function of the error of the RNA hosting the gene
     uint8_t concentration{};
@@ -24,7 +30,7 @@ struct cuRNA {
     uint transcription_length{};
 
     uint nb_gene{};
-    cuGene *list_gene{};
+    my_array<cuGene> list_gene;
 };
 
 struct cuIndividual {
@@ -33,7 +39,6 @@ struct cuIndividual {
     __device__ void transcription();
     __device__ void find_gene_per_RNA();
     __device__ void translation();
-
 
     __device__ void prepare_rnas(uint* nbPerThreads, uint* tmp_sparse_collection);
 
@@ -62,7 +67,7 @@ struct cuIndividual {
             return (b + size) - a;
         return b - a;
     }
-
+    
     // Printing
     __device__ void print_metadata_summary() const;
 
@@ -89,9 +94,15 @@ struct cuIndividual {
     cuRNA *list_rnas{};
 
     uint nb_gene{};
-    cuGene *list_gene{};
-    cuProtein *list_protein{};
+    my_array<cuGene> list_gene;
+    my_array<cuProtein> list_protein;
 
     double phenotype[FUZZY_SAMPLING]{};
     double fitness{};
 };
+
+__device__
+void pseudo_new_my_array_gene(my_array<cuGene> * my_arr, size_t new_size);
+
+__device__
+void pseudo_new_my_array_prot(my_array<cuProtein> * my_arr, size_t new_size);
