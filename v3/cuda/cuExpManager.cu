@@ -347,6 +347,7 @@ void cuExpManager::device_data_destructor() {
     checkCuda(cudaFree(tmp.list_rnas));
     checkCuda(cudaFree(tmp.list_gene.ary));
     checkCuda(cudaFree(tmp.list_protein.ary));
+    checkCuda(cudaFree(tmp.tmp_sparse_collection));
     checkCuda(cudaFree(all_parent_genome_));
     checkCuda(cudaFree(all_child_genome_));
 
