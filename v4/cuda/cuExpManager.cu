@@ -135,7 +135,7 @@ void cuExpManager::evaluate_population() {
     dim3 one_indiv_by_thread_grid(ceil((float)nb_indivs_ / (float)my_blockDim.x));
     clean_metadata<<<one_indiv_by_thread_grid, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    evaluate_population_kernel1<<<my_gridDim, my_blockDim, (my_blockDim.x+1)*sizeof(uint)>>>(nb_indivs_, device_individuals_);
+    evaluate_population_kernel1<<<my_gridDim, my_blockDim, (genome_length_) * sizeof(char)>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
     gather_genes<<<one_indiv_by_thread_grid, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;

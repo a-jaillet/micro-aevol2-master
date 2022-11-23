@@ -13,13 +13,21 @@ __device__ void cuIndividual::search_patterns() {
     uint idx = threadIdx.x;
     uint rr_width = blockDim.x;
 
-    for (uint position = idx; position < size; position += rr_width) {
-        const char *genome_at_pos = genome + position;
+    extern __shared__ char local_genome_PROM[];
 
+    // First, we copy the genome in the shared memory
+    for (uint position = idx; position < size; position += rr_width) {
+        local_genome_PROM[position] = genome[position];
+    }
+
+    __syncthreads();
+    for (uint position = idx; position < size; position += rr_width) {
+        const char *genome_at_pos = local_genome_PROM + position;
         promoters[position]   = is_promoter(genome_at_pos);
         terminators[position] = is_terminator(genome_at_pos);
         prot_start[position]  = is_prot_start(genome_at_pos);
     }
+
 }
 
 
