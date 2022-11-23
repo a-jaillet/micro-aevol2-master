@@ -71,11 +71,14 @@ __device__ void cuIndividual::clean_metadata() {
     nb_gene = 0;
 
     fitness = 0.0;
+    
+    // Because we change the memory management
+    assert(nb_rnas < max_list_size);
 
-    for (int i = 0; i < nb_rnas; ++i) {
-        delete[] list_rnas[i].list_gene.ary;
-        list_rnas[i].list_gene.ary = nullptr;
-    }
+    // for (int i = 0; i < nb_rnas; ++i) {
+    //     // delete[] list_rnas[i].list_gene.ary;
+    //     // list_rnas[i].list_gene.ary = nullptr;
+    // }
     nb_rnas = 0;
 
     // delete[] list_gene.ary;
@@ -150,6 +153,10 @@ __device__ void cuIndividual::prepare_rnas(uint * nbPerThreads, uint* tmp_sparse
                 rna.start_transcription = read_position + PROM_SIZE;
                 if (rna.start_transcription >= size)
                     rna.start_transcription -= size;
+
+                assert(insert_before < max_list_size);
+                rna.list_gene.max_size = max_list_size;
+                rna.list_gene.ary = &(list_gene_4_rna[insert_before*max_list_size]);
                 insert_before++; 
             }
         }
@@ -202,7 +209,7 @@ __device__ void cuIndividual::prepare_gene(uint rna_idx) const {
     // One thread
     auto &rna = list_rnas[rna_idx];
     rna.nb_gene = 0;
-    rna.list_gene.ary = nullptr;
+    // rna.list_gene.ary = nullptr;
     if (rna.errors > PROM_MAX_DIFF) {
         return;
     }
@@ -232,7 +239,8 @@ __device__ void cuIndividual::prepare_gene(uint rna_idx) const {
 
     rna.nb_gene = local_nb_gene;
     if (local_nb_gene > 0) {
-        rna.list_gene.ary = new cuGene[local_nb_gene]{};
+        pseudo_new_my_array_gene(&(rna.list_gene), local_nb_gene);
+        // rna.list_gene.ary = new cuGene[local_nb_gene]{};
         assert(rna.list_gene.ary != nullptr);
     }
     for (int i = 0; i < rna.nb_gene; ++i) {

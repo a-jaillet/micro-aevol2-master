@@ -262,6 +262,9 @@ void cuExpManager::transfer_to_device() {
     cuProtein * list_all_cu_prot;
     checkCuda(cudaMalloc(&(list_all_cu_prot), nb_indivs_ * list_max_size * sizeof(cuProtein)));
 
+    // We consider that there is maximum 32 rna per indiv and 32 gene per rna
+    cuGene * list_all_rna_cu_gene;    
+    checkCuda(cudaMalloc(&(list_all_rna_cu_gene),  nb_indivs_ * list_max_size * list_max_size * sizeof(cuGene)));
 
     uint* all_prot_start;
     cuRNA* all_rnas;
@@ -281,7 +284,7 @@ void cuExpManager::transfer_to_device() {
     }
 
     init_device_population<<<1, 1>>>(nb_indivs_, genome_length_, device_individuals_, all_child_genome_,
-                                     all_promoters, all_terminators, all_tmp_sparse_collection, all_prot_start, all_rnas, list_all_cu_gene, list_all_cu_prot, list_max_size);
+                                     all_promoters, all_terminators, all_tmp_sparse_collection, all_prot_start, all_rnas, list_all_cu_gene, list_all_rna_cu_gene, list_all_cu_prot, list_max_size);
     CHECK_KERNEL
 
     // Transfer phenotypic target
@@ -348,6 +351,7 @@ void cuExpManager::device_data_destructor() {
     checkCuda(cudaFree(tmp.list_gene.ary));
     checkCuda(cudaFree(tmp.list_protein.ary));
     checkCuda(cudaFree(tmp.tmp_sparse_collection));
+    checkCuda(cudaFree(tmp.list_gene_4_rna));
     checkCuda(cudaFree(all_parent_genome_));
     checkCuda(cudaFree(all_child_genome_));
 
@@ -605,7 +609,7 @@ void check_rng(RandService* rand_service) {
 
 __global__
 void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_individuals, char* all_genomes,
-                            uint8_t* all_promoters, uint* all_terminators, uint* all_tmp_sparse_collection, uint* all_prot_start, cuRNA* all_rnas, cuGene * list_all_cu_gene, cuProtein * list_all_cu_prot, int list_max_size) {
+                            uint8_t* all_promoters, uint* all_terminators, uint* all_tmp_sparse_collection, uint* all_prot_start, cuRNA* all_rnas, cuGene * list_all_cu_gene, cuGene * list_all_rna_cu_gene, cuProtein * list_all_cu_prot, int list_max_size) {
     auto idx = threadIdx.x + blockIdx.x * blockDim.x;
     auto rr_width = blockDim.x * gridDim.x;
 
@@ -624,10 +628,14 @@ void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_
         local_indiv.nb_rnas = 0;
         local_indiv.nb_gene = 0;
         local_indiv.list_gene.max_size = list_max_size;
-        local_indiv.list_gene.ary = &(list_all_cu_gene[32*i]);
+        local_indiv.list_gene.ary = &(list_all_cu_gene[list_max_size*i]);
         local_indiv.list_protein.max_size = list_max_size;
-        local_indiv.list_protein.ary = &(list_all_cu_prot[32*i]);
+        local_indiv.list_protein.ary = &(list_all_cu_prot[list_max_size*i]);
         local_indiv.fitness = 0.0;
+
+        local_indiv.max_list_size = list_max_size;
+        local_indiv.list_gene_4_rna = &(list_all_rna_cu_gene[list_max_size*list_max_size*i]);
+
         for (int j = 0; j < FUZZY_SAMPLING; ++j) {
             local_indiv.phenotype[j] = 0.0;
         }

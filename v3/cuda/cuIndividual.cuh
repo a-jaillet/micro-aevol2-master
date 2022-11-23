@@ -87,6 +87,10 @@ struct cuIndividual {
     uint nb_prot_start{};
     uint *prot_start{};
 
+    // To not renew the list_gene of rnas
+    uint max_list_size{};
+    cuGene * list_gene_4_rna;
+
     // New struct for tmp calculations, usefull in sparse function
     uint *tmp_sparse_collection{};
 
