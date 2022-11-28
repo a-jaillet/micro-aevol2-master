@@ -14,14 +14,14 @@ void selection(uint grid_height, uint grid_width, const cuIndividual* individual
                int* next_reproducers);
 
 __global__
-void reproduction(uint nb_indivs, cuIndividual* individuals, const int* reproducers, const char* all_parent_genome);
+void reproduction(uint nb_indivs, cuIndividual* individuals, const int* reproducers, cuBitSet* all_parent_genome);
 
 __global__
 void do_mutation(uint nb_indivs, cuIndividual* individuals, double mutation_rate, RandService* rand_service);
 
 
 __global__
-void swap_parent_child_genome(uint nb_indivs, cuIndividual* individuals, char* all_parent_genome);
+void swap_parent_child_genome(uint nb_indivs, cuIndividual* individuals, cuBitSet* all_parent_genome);
 
 __global__
 void check_result(uint nb_indivs, cuIndividual* individuals);
@@ -67,8 +67,8 @@ __global__
 void clean_population_metadata(uint nb_indivs, cuIndividual* individuals);
 
 __global__
-void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_individuals, char* all_genomes,
-                            uint8_t* all_promoters, uint* all_terminators, uint* all_tmp_sparse_collection, uint* all_prot_start, cuRNA* all_rnas, cuGene * list_all_cu_gene, cuGene * list_all_rna_cu_gene, cuProtein * list_all_cu_prot, int list_max_size);
+void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_individuals, cuBitSet* all_genomes, char* all_bit_in_cuBitSet, cuBitSet* all_parent_genome, 
+                            char* all_parent_bit_in_cuBitSet, char* all_genome_char, uint8_t* all_promoters, uint* all_terminators, uint* all_tmp_sparse_collection, uint* all_prot_start, cuRNA* all_rnas, cuGene * list_all_cu_gene, cuGene * list_all_rna_cu_gene, cuProtein * list_all_cu_prot, int list_max_size);
 
 __global__
 void check_rng(RandService* rand_service);

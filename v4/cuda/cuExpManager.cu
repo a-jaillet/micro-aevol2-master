@@ -135,11 +135,11 @@ void cuExpManager::evaluate_population() {
     dim3 one_indiv_by_thread_grid(ceil((float)nb_indivs_ / (float)my_blockDim.x));
     clean_metadata<<<one_indiv_by_thread_grid, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    evaluate_population_kernel1<<<my_gridDim, my_blockDim, (genome_length_) * sizeof(char)>>>(nb_indivs_, device_individuals_);
+    evaluate_population_kernel1<<<my_gridDim, my_blockDim, (genome_length_ + PROM_SIZE) * sizeof(char)>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
     gather_genes<<<one_indiv_by_thread_grid, my_blockDim>>>(nb_indivs_, device_individuals_);
     CHECK_KERNEL;
-    evaluate_population_kernel2<<<my_gridDim, my_blockDim>>>(nb_indivs_, device_individuals_, device_target_);
+    evaluate_population_kernel2<<<my_gridDim, my_blockDim, (genome_length_ + PROM_SIZE) * sizeof(char)>>>(nb_indivs_, device_individuals_, device_target_);
     CHECK_KERNEL;
 }
 
@@ -244,9 +244,14 @@ void cuExpManager::transfer_to_device() {
     auto all_genomes_size = nb_indivs_ * genome_length_;
     // For each genome, we add a phantom space at the end.
     auto all_genomes_size_w_phantom = all_genomes_size + nb_indivs_ * PROM_SIZE;
+    checkCuda(cudaMalloc(&(all_genome_char_), all_genomes_size_w_phantom * sizeof (char)));
+    checkCuda(cudaMalloc(&(all_child_genome_), nb_indivs_ * sizeof(cuBitSet)));
+    checkCuda(cudaMalloc(&(all_parent_genome_), nb_indivs_ * sizeof(cuBitSet)));
 
-    checkCuda(cudaMalloc(&(all_child_genome_), all_genomes_size_w_phantom * sizeof(char)));
-    checkCuda(cudaMalloc(&(all_parent_genome_), all_genomes_size_w_phantom * sizeof(char)));
+    auto nb_all_bit_in_bitsets = ceil((float) all_genomes_size_w_phantom / 8.0f);
+    checkCuda(cudaMalloc(&(all_bits_in_bitset_), nb_all_bit_in_bitsets * sizeof(char)));
+    checkCuda(cudaMalloc(&(all_parents_bits_in_bitset_), nb_all_bit_in_bitsets * sizeof(char)));
+
 
     uint8_t* all_promoters;
     uint* all_terminators;
@@ -277,14 +282,14 @@ void cuExpManager::transfer_to_device() {
     // Transfer data from individual to device
     for (int i = 0; i < nb_indivs_; ++i) {
         auto offset = genome_length_ + PROM_SIZE;
-        auto indiv_genome_pointer = all_child_genome_ + (i * offset);
+        auto indiv_genome_pointer = all_genome_char_ + (i * offset);
         auto indiv_genome_phantom_pointer = indiv_genome_pointer + genome_length_;
         checkCuda(cudaMemcpy(indiv_genome_pointer, host_individuals_[i], genome_length_, cudaMemcpyHostToDevice));
         checkCuda(cudaMemcpy(indiv_genome_phantom_pointer, host_individuals_[i], PROM_SIZE, cudaMemcpyHostToDevice));
     }
 
-    init_device_population<<<1, 1>>>(nb_indivs_, genome_length_, device_individuals_, all_child_genome_,
-                                     all_promoters, all_terminators, all_tmp_sparse_collection, all_prot_start, all_rnas, list_all_cu_gene, list_all_rna_cu_gene, list_all_cu_prot, list_max_size);
+    init_device_population<<<1, 1>>>(nb_indivs_, genome_length_, device_individuals_, all_child_genome_, all_bits_in_bitset_, all_parent_genome_, all_parents_bits_in_bitset_,
+                                     all_genome_char_, all_promoters, all_terminators, all_tmp_sparse_collection, all_prot_start, all_rnas, list_all_cu_gene, list_all_rna_cu_gene, list_all_cu_prot, list_max_size);
     CHECK_KERNEL
 
     // Transfer phenotypic target
@@ -352,10 +357,13 @@ void cuExpManager::device_data_destructor() {
     checkCuda(cudaFree(tmp.list_protein.ary));
     checkCuda(cudaFree(tmp.tmp_sparse_collection));
     checkCuda(cudaFree(tmp.list_gene_4_rna));
+    checkCuda(cudaFree(all_bits_in_bitset_));
+    checkCuda(cudaFree(all_parents_bits_in_bitset_));
     checkCuda(cudaFree(all_parent_genome_));
     checkCuda(cudaFree(all_child_genome_));
-
     checkCuda(cudaFree(device_individuals_));
+    checkCuda(cudaFree(all_genome_char_));
+
 
     cudaDeviceReset();
 }
@@ -404,18 +412,20 @@ void do_mutation(uint nb_indivs, cuIndividual* individuals, double mutation_rate
 
     for (int i = 0; i < nb_switch; ++i) {
         auto position = rand_service->gen_number_max(indiv.size, indiv_idx, MUTATION);
-        if (indiv.genome[position] == '0') indiv.genome[position] = '1';
-        else indiv.genome[position] = '0';
-
+        // if (indiv.genome[position] == '0') indiv.genome[position] = '1';
+        // else indiv.genome[position] = '0';
+        indiv.genome->set(position);
+        
         if (position < PROM_SIZE) // Do not forget phantom space
-            indiv.genome[position + indiv.size] = indiv.genome[position];
+            // indiv.genome[position + indiv.size] = indiv.genome[position];
+            indiv.genome->set(position + indiv.size, indiv.genome->get(position));
 
 //        printf("indiv %u switch at %d\n", indiv_idx, position);
     }
 }
 
 __global__
-void reproduction(uint nb_indivs, cuIndividual* individuals, const int* reproducers, const char* all_parent_genome) {
+void reproduction(uint nb_indivs, cuIndividual* individuals, const int* reproducers, cuBitSet* all_parent_genome) {
     // One block per individuals
     auto indiv_idx = blockIdx.x;
     auto idx = threadIdx.x;
@@ -425,8 +435,8 @@ void reproduction(uint nb_indivs, cuIndividual* individuals, const int* reproduc
         return;
     }
 
-    __shared__ const char* parent_genome;
-    __shared__ char* child_genome;
+    __shared__ cuBitSet * parent_genome;
+    __shared__ cuBitSet * child_genome;
     __shared__ uint size;
 
     if (threadIdx.x == 0) {
@@ -436,11 +446,13 @@ void reproduction(uint nb_indivs, cuIndividual* individuals, const int* reproduc
         auto offset = reproducers[indiv_idx] * (child.size + PROM_SIZE); // Do not forget phantom space
         parent_genome = all_parent_genome + offset;
         child_genome = child.genome;
+
     }
+
     __syncthreads();
 
     for (int position = idx; position < size + PROM_SIZE; position += rr_width) { // Do not forget phantom space
-        child_genome[position] = parent_genome[position];
+        child_genome->set(position, parent_genome->get(position));
     }
 }
 
@@ -488,7 +500,7 @@ void selection(uint grid_height, uint grid_width, const cuIndividual* individual
 }
 
 __global__
-void swap_parent_child_genome(uint nb_indivs, cuIndividual* individuals, char* all_parent_genome) {
+void swap_parent_child_genome(uint nb_indivs, cuIndividual* individuals, cuBitSet* all_parent_genome) {
     // One thread per individual
     auto indiv_idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (indiv_idx >= nb_indivs)
@@ -608,8 +620,9 @@ void check_rng(RandService* rand_service) {
 }
 
 __global__
-void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_individuals, char* all_genomes,
-                            uint8_t* all_promoters, uint* all_terminators, uint* all_tmp_sparse_collection, uint* all_prot_start, cuRNA* all_rnas, cuGene * list_all_cu_gene, cuGene * list_all_rna_cu_gene, cuProtein * list_all_cu_prot, int list_max_size) {
+void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_individuals, cuBitSet* all_genomes, char* all_bit_in_bitset, cuBitSet* all_parent_genome, 
+                            char* all_parent_bit_in_bitset, char* all_genome_char, uint8_t* all_promoters, uint* all_terminators, uint* all_tmp_sparse_collection, uint* all_prot_start, cuRNA* all_rnas, cuGene * list_all_cu_gene, cuGene * list_all_rna_cu_gene, cuProtein * list_all_cu_prot, int list_max_size) {
+    
     auto idx = threadIdx.x + blockIdx.x * blockDim.x;
     auto rr_width = blockDim.x * gridDim.x;
 
@@ -617,7 +630,7 @@ void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_
         auto& local_indiv = all_individuals[i];
         local_indiv.size = genome_length;
         auto offset = genome_length * i;
-        local_indiv.genome = all_genomes + offset + i * PROM_SIZE;
+        local_indiv.genome = all_genomes + i;
         local_indiv.promoters = all_promoters + offset;
         local_indiv.terminators = all_terminators + offset;
         local_indiv.tmp_sparse_collection = all_tmp_sparse_collection + offset;
@@ -638,6 +651,25 @@ void init_device_population(int nb_indivs, int genome_length, cuIndividual* all_
 
         for (int j = 0; j < FUZZY_SAMPLING; ++j) {
             local_indiv.phenotype[j] = 0.0;
+        }
+
+        // Connect genome to corresponding bytes (for child)
+        local_indiv.genome->bytes = all_bit_in_bitset + i *(genome_length + PROM_SIZE);
+
+        // for parents
+        (all_parent_genome + i)->bytes = all_parent_bit_in_bitset + + i *(genome_length + PROM_SIZE);
+
+        // Genome copying and setting
+        local_indiv.genome->init_size(genome_length + PROM_SIZE);
+        for (int j = 0; j < genome_length + PROM_SIZE; j++)
+        {
+            if (all_genome_char[j+i*(genome_length + PROM_SIZE)] == '0')
+            {
+                local_indiv.genome->set(j, 0);
+            }
+            else {
+                local_indiv.genome->set(j, 1);
+            }
         }
     }
 }

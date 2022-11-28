@@ -8,6 +8,14 @@
 
 #include "aevol_constants.h"
 #include "cuProtein.cuh"
+#include "cuBitSet.cuh"
+
+// struct Test {
+//     inline __device__ void test(){
+
+//     }
+// };
+
 
 template <typename T> 
 struct my_array {
@@ -48,7 +56,7 @@ struct cuIndividual {
 
     __device__ void gather_genes();
 
-    __device__ void translate_gene(uint gene_idx) const;
+    __device__ void translate_gene(uint gene_idx, char * local_genome_PROM) const;
 
     __device__ void compute_phenotype();
 
@@ -61,11 +69,8 @@ struct cuIndividual {
             return (b + size) - a;
         return b - a;
     }
+    inline __device__ void test() {
 
-    inline __device__ uint get_distance_ori(uint a, uint b) const {
-        if (a >= b)
-            return (b + size) - a;
-        return b - a;
     }
     
     // Printing
@@ -80,7 +85,7 @@ struct cuIndividual {
     __device__ void print_phenotype() const;
 
     uint size{};
-    char *genome{};
+    cuBitSet * genome;
     uint8_t *promoters{};
     uint nb_terminator{};
     uint *terminators{};

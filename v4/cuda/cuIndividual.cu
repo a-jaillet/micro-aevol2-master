@@ -16,9 +16,7 @@ __device__ void cuIndividual::search_patterns() {
     extern __shared__ char local_genome_PROM[];
 
     // First, we copy the genome in the shared memory
-    for (uint position = idx; position < size; position += rr_width) {
-        local_genome_PROM[position] = genome[position];
-    }
+    genome->getBits(local_genome_PROM);
 
     __syncthreads();
     for (uint position = idx; position < size; position += rr_width) {
@@ -67,8 +65,13 @@ __device__ void cuIndividual::translation() {
     uint idx = threadIdx.x;
     uint rr_width = blockDim.x;
 
+    extern __shared__ char local_genome_PROM[];
+
+    // First, we copy the genome in the shared memory
+    genome->getBits(local_genome_PROM);
+
     for (uint gene_idx = idx; gene_idx < nb_gene; gene_idx += rr_width) {
-        translate_gene(gene_idx);
+        translate_gene(gene_idx, local_genome_PROM);
     }
 }
 
@@ -240,7 +243,7 @@ __device__ void cuIndividual::prepare_gene(uint rna_idx) const {
         uint prev_idx = ps_idx++;
         if (ps_idx == nb_ps)
             ps_idx = 0;
-        distance += get_distance_ori(list_ps[prev_idx], list_ps[ps_idx]);
+        distance += get_distance_ori(list_ps[prev_idx], list_ps[ps_idx],2);
     }
     // all potential genes are counted
     // Let us put their position in a list
@@ -297,7 +300,7 @@ __device__ void cuIndividual::gather_genes() {
     }
 }
 
-__device__ void cuIndividual::translate_gene(uint gene_idx) const {
+__device__ void cuIndividual::translate_gene(uint gene_idx, char * local_genome_PROM) const {
     // One thread
     const auto &gene = list_gene.ary[gene_idx];
 
@@ -314,7 +317,7 @@ __device__ void cuIndividual::translate_gene(uint gene_idx) const {
     auto &new_protein = list_protein.ary[gene_idx];
 
     while (true) {
-        uint8_t codon = translate_to_codon(genome + it);
+        uint8_t codon = translate_to_codon(local_genome_PROM + it);
         if (codon == CODON_STOP)
             break;
         distance += CODON_SIZE;

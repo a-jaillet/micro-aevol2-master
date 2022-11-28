@@ -7,6 +7,7 @@
 #include "Abstract_ExpManager.h"
 #include "ExpManager.h"
 #include "RandService.h"
+#include "cuBitSet.cuh"
 
 class cuIndividual;
 
@@ -57,8 +58,14 @@ private:
 
     // Device data
     cuIndividual* device_individuals_;
-    char* all_child_genome_;
-    char* all_parent_genome_;
+
+    char* all_genome_char_;
+
+    cuBitSet* all_child_genome_;
+    cuBitSet* all_parent_genome_;
+
+    char* all_bits_in_bitset_;
+    char* all_parents_bits_in_bitset_;
 
     int* reproducers_;
 
